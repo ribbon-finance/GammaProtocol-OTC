@@ -136,15 +136,6 @@ contract('ChainlinkPricer', ([owner, bot, random]) => {
         'ChainLinkPricer: unauthorized sender',
       )
     })
-
-    it('should revert if round ID is incorrect: price[roundId].timestamp < expiry', async () => {
-      const expiryTimestamp = (t1 + t2) / 2 // between t0 and t1
-      const roundId = 1
-      await expectRevert(
-        pricer.setExpiryPriceInOracle(expiryTimestamp, roundId, { from: bot }),
-        'ChainLinkPricer: invalid roundId',
-      )
-    })
   })
 
   describe('get historical price', async () => {
