@@ -145,6 +145,8 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
   const premiumAmountInUSD = '5000'
   const collateralAmountInUSD = '16667' // Since USDC starts at 0.9, the collateral required is 10% * 100 * 1500 / 0.9
   const marginTopUpAmount = '2000'
+  const strikePriceInUSD = 1300
+  const size = 100
 
   let userSignature1: permit
   let userSignature2: permit
@@ -1341,16 +1343,15 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
       const pastExpiry = new BigNumber(await time.latest()).minus(100)
 
       await expectRevert(
-        otcWrapperProxy.placeOrder(weth.address, false, 1, pastExpiry, 0, parseUnits('100', 8)),
+        otcWrapperProxy.placeOrder(weth.address, false, 1, pastExpiry, 0, parseUnits(size.toString(), 8)),
         'OTCWrapper: expiry must be in the future',
       )
     })
     it('user sucessfully creates a new order via direct call', async () => {
       assert.equal((await otcWrapperProxy.latestOrder()).toString(), '0')
 
-      const strikePrice = scaleBigNum(1300, 8)
-      const size = 100
-      const parsedSize = parseUnits('100', 8)
+      const strikePrice = scaleBigNum(strikePriceInUSD, 8)
+      const parsedSize = parseUnits(size.toString(), 8)
       const notional = (size * wethStartingPrice).toString()
 
       const tx = await otcWrapperProxy.placeOrder(
@@ -1486,7 +1487,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
     })
     it('successfully cancels an order via direct call', async () => {
       // create a new order
-      await otcWrapperProxy.placeOrder(weth.address, true, 1, expiry, 0, parseUnits('100', 8), {
+      await otcWrapperProxy.placeOrder(weth.address, true, 1, expiry, 0, parseUnits(size.toString(), 8), {
         from: user,
       })
 
@@ -1502,7 +1503,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
     })
     it('successfully cancels an order via minimal fowarder call', async () => {
       // create a new order
-      await otcWrapperProxy.placeOrder(weth.address, true, 1, expiry, 0, parseUnits('100', 8), {
+      await otcWrapperProxy.placeOrder(weth.address, true, 1, expiry, 0, parseUnits(size.toString(), 8), {
         from: user,
       })
       assert.equal((await otcWrapperProxy.latestOrder()).toString(), '5')
@@ -1587,7 +1588,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
       )
     })
     it('should revert if the user permit signer is not the order buyer', async () => {
-      await otcWrapperProxy.placeOrder(weth.address, true, 1, expiry, 0, parseUnits('100', 8), {
+      await otcWrapperProxy.placeOrder(weth.address, true, 1, expiry, 0, parseUnits(size.toString(), 8), {
         from: random,
       })
       await expectRevert(
@@ -1709,7 +1710,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
           stableStrikeAsset.address,
           usdc.address,
           createTokenAmount(100),
-          createTokenAmount(scaleBigNum(1300, 8)),
+          createTokenAmount(scaleBigNum(strikePriceInUSD, 8)),
           scaleBigNum(1500, 8),
           expiry,
           USDCDECIMALS,
@@ -1723,7 +1724,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
       const premium = parseUnits(premiumAmountInUSD, 6)
       const collateralAmount = parseUnits(collateralAmountInUSD, 6)
       const orderFee = parseUnits('150000', 6).div(100) // fee is set at 1% of notional
-      const mintAmount = parseUnits('100', 8)
+      const mintAmount = parseUnits(size.toString(), 8)
 
       const userBalBeforeUSDC = new BigNumber(await usdc.balanceOf(user))
       const beneficiaryBalBeforeUSDC = new BigNumber(await usdc.balanceOf(beneficiary))
@@ -1791,7 +1792,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
     })
     it('successfully executes a put with collateral in WBTC via direct call', async () => {
       // user places a new order
-      const strikePrice = scaleBigNum(1300, 8)
+      const strikePrice = scaleBigNum(strikePriceInUSD, 8)
       const notional = parseUnits('300000', 6)
       const size = parseUnits('200', 8)
 
@@ -1815,7 +1816,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
           stableStrikeAsset.address,
           wbtc.address,
           createTokenAmount(100),
-          createTokenAmount(scaleBigNum(1300, 8)),
+          createTokenAmount(scaleBigNum(strikePriceInUSD, 8)),
           scaleBigNum(1500, 8),
           expiry,
           WBTCDECIMALS,
@@ -1904,9 +1905,10 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
       const userWallet = Wallet.fromPrivateKey(randomBuffer)
 
       // place repeated order
-      const strikePrice = scaleBigNum(1300, 8)
+      const strikePrice = scaleBigNum(strikePriceInUSD, 8)
       const notional = parseUnits('150000', 6)
-      const size = parseUnits('100', 8)
+      const parsedSize = parseUnits(size.toString(), 8)
+      size
 
       await otcWrapperProxy.placeOrder(
         weth.address,
@@ -1914,7 +1916,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
         strikePrice,
         expiry,
         parseUnits(premiumAmountInUSD, 6),
-        size,
+        parsedSize,
         {
           from: user,
         },
@@ -1923,7 +1925,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
       const premium = parseUnits(premiumAmountInUSD, 6)
       const collateralAmount = parseUnits(collateralAmountInUSD, 6)
       const orderFee = parseUnits('150000', 6).div(100) // fee is set at 1% of notional
-      const mintAmount = parseUnits('100', 8)
+      const mintAmount = parseUnits(size.toString(), 8)
       const orderId = 8
 
       const dataExample = [orderId, userSignature3, mmSignatureUSDC2, premium, usdc.address, collateralAmount]
@@ -2000,7 +2002,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
         1,
         expiry,
         parseUnits(premiumAmountInUSD, 6),
-        parseUnits('100', 8),
+        parseUnits(size.toString(), 8),
         {
           from: user,
         },
@@ -2461,14 +2463,14 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
       await expectRevert(otcWrapperProxy.redeem(1, { from: random }), 'OTCWrapper: sender is not the order buyer')
     })
     it('no collateral amounts are redeemed if buyer tries to redeem before or after the vault was settled OTM', async () => {
-      const strikePrice = scaleBigNum(1300, 8)
+      const strikePrice = scaleBigNum(strikePriceInUSD, 8)
       // notional = parseUnits('150000', 6)
-      const size = parseUnits('100', 8)
+      const parsedSize = parseUnits(size.toString(), 8)
       const premium = parseUnits(premiumAmountInUSD, 6)
       const collateralAmount = parseUnits(collateralAmountInUSD, 6)
       const expiry = createValidExpiry(Number(await time.latest()), 10)
 
-      await otcWrapperProxy.placeOrder(weth.address, false, strikePrice, expiry, premium, size, {
+      await otcWrapperProxy.placeOrder(weth.address, false, strikePrice, expiry, premium, parsedSize, {
         from: user,
       })
 
@@ -2507,7 +2509,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
 
       assert.equal(marginPoolBalBeforeUSDC.minus(marginPoolBalAfterUSDC).toString(), '0')
       assert.equal(userBalAfterUSDC.minus(userBalBeforeUSDC).toString(), '0')
-      assert.equal(userBalBeforeOtoken.minus(userBalAfterOtoken).toString(), size.toString())
+      assert.equal(userBalBeforeOtoken.minus(userBalAfterOtoken).toString(), parsedSize.toString())
 
       await otcWrapperProxy.settleVault(orderID, { from: marketMaker })
 
@@ -2527,15 +2529,15 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
     })
 
     it('user successfully redeems before vault is settled', async () => {
-      const strikePrice = scaleBigNum(1300, 8)
+      const strikePrice = scaleBigNum(strikePriceInUSD, 8)
       // notional = parseUnits('150000', 6)
-      const size = parseUnits('100', 8)
+      const parsedSize = parseUnits(size.toString(), 8)
       const premium = parseUnits(premiumAmountInUSD, 6)
       const collateralAmount = parseUnits(collateralAmountInUSD, 6)
       const payout = parseUnits('10000', 6)
       const expiry = createValidExpiry(Number(await time.latest()), 10)
 
-      await otcWrapperProxy.placeOrder(weth.address, false, strikePrice, expiry, premium, size, {
+      await otcWrapperProxy.placeOrder(weth.address, false, strikePrice, expiry, premium, parsedSize, {
         from: user,
       })
 
@@ -2575,12 +2577,12 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
 
       assert.equal(marginPoolBalBeforeUSDC.minus(marginPoolBalAfterUSDC).toString(), payout.toString())
       assert.equal(userBalAfterUSDC.minus(userBalBeforeUSDC).toString(), payout.toString())
-      assert.equal(userBalBeforeOtoken.minus(userBalAfterOtoken).toString(), size.toString())
+      assert.equal(userBalBeforeOtoken.minus(userBalAfterOtoken).toString(), parsedSize.toString())
 
       // event
       const { logs } = tx
       assert.equal(logs[0].args.orderID.toString(), orderID.toString())
-      assert.equal(logs[0].args.size.toString(), size.toString())
+      assert.equal(logs[0].args.size.toString(), parsedSize.toString())
 
       // settle vault after redeem
       const marginPoolBalBeforeUSDC2 = new BigNumber(await usdc.balanceOf(marginPool.address))
@@ -2602,14 +2604,14 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
     })
 
     it('should revert if it is ITM and there is not enough collateral in the vault', async () => {
-      const strikePrice = scaleBigNum(1300, 8)
+      const strikePrice = scaleBigNum(strikePriceInUSD, 8)
       // notional = parseUnits('150000', 6)
-      const size = parseUnits('100', 8)
+      const parsedSize = parseUnits(size.toString(), 8)
       const premium = parseUnits(premiumAmountInUSD, 6)
       const collateralAmount = parseUnits(collateralAmountInUSD, 6)
       const expiry = createValidExpiry(Number(await time.latest()), 10)
 
-      await otcWrapperProxy.placeOrder(weth.address, false, strikePrice, expiry, premium, size, {
+      await otcWrapperProxy.placeOrder(weth.address, false, strikePrice, expiry, premium, parsedSize, {
         from: user,
       })
 
