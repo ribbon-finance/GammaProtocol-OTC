@@ -8,8 +8,8 @@ import {
   WhitelistInstance,
   MarginPoolInstance,
   OtokenFactoryInstance,
-} from '../../../../build/types/truffle-types'
-import { createTokenAmount, createValidExpiry, createScaledBigNumber as scaleBigNum } from '../../../utils'
+} from '../../../build/types/truffle-types'
+import { createTokenAmount, createValidExpiry, createScaledBigNumber as scaleBigNum } from '../../utils'
 import BigNumber from 'bignumber.js'
 
 const { time } = require('@openzeppelin/test-helpers')
@@ -39,30 +39,30 @@ enum ActionType {
   Call,
 }
 
-contract('Naked Put Option expires Itm flow', ([accountOwner1, buyer]) => {
+contract('Naked Call Option expires tm flow', ([accountOwner1, buyer]) => {
   let expiry: number
 
   let addressBook: AddressBookInstance
   let calculator: MarginCalculatorInstance
-  let controllerImplementation: ControllerInstance
   let controllerProxy: ControllerInstance
+  let controllerImplementation: ControllerInstance
   let marginPool: MarginPoolInstance
   let whitelist: WhitelistInstance
   let otokenImplementation: OtokenInstance
   let otokenFactory: OtokenFactoryInstance
 
-  // oracle module mock
+  // oracle modulce mock
   let oracle: MockOracleInstance
 
   let stableStrikeAsset: MockERC20Instance
   let usdc: MockERC20Instance
   let weth: MockERC20Instance
 
-  let ethPut: OtokenInstance
-  const strikePrice = 1400
+  let ethCall: OtokenInstance
+  const strikePrice = 300
 
   const optionsAmount = 10
-  const collateralAmount = optionsAmount * strikePrice
+  const collateralAmount = 300 // 10% of notional
   let vaultCounter: number
 
   const stableStrikeAssetDecimals = 18
@@ -73,7 +73,7 @@ contract('Naked Put Option expires Itm flow', ([accountOwner1, buyer]) => {
     const now = (await time.latest()).toNumber()
     expiry = createValidExpiry(now, 30)
 
-    // setup stableStrikeAsset, usdc and weth
+    // setup usdc and weth
     stableStrikeAsset = await MockERC20.new('stableStrikeAsset', 'SSA', stableStrikeAssetDecimals)
     usdc = await MockERC20.new('USDC', 'USDC', usdcDecimals)
     weth = await MockERC20.new('WETH', 'WETH', wethDecimals)
@@ -84,7 +84,7 @@ contract('Naked Put Option expires Itm flow', ([accountOwner1, buyer]) => {
     marginPool = await MarginPool.new(addressBook.address)
     // setup margin vault
     const lib = await MarginVault.new()
-    // setup controller module
+    // setup controllerProxy module
     await Controller.link('MarginVault', lib.address)
     controllerImplementation = await Controller.new(addressBook.address)
     // setup mock Oracle module
@@ -93,10 +93,10 @@ contract('Naked Put Option expires Itm flow', ([accountOwner1, buyer]) => {
     calculator = await MarginCalculator.new(oracle.address, addressBook.address)
     // setup whitelist module
     whitelist = await Whitelist.new(addressBook.address)
-    // whitelist product and collateral
     await whitelist.whitelistCollateral(usdc.address)
-    await whitelist.whitelistProduct(weth.address, stableStrikeAsset.address, usdc.address, true)
-    await whitelist.whitelistNakedCollateral(usdc.address, weth.address, true)
+    await whitelist.whitelistCoveredCollateral(usdc.address, weth.address, false)
+    whitelist.whitelistProduct(weth.address, stableStrikeAsset.address, usdc.address, false)
+
     // set upper bound values and spot shock
     // In combination when the spot shock and upperBoundValue are set to a very high number and anvery low number respectively,
     // they make the Opyn restrictions to be very low collateral - which means that our restrictions from MarginRequirements.sol are the ones that become active
@@ -105,11 +105,12 @@ contract('Naked Put Option expires Itm flow', ([accountOwner1, buyer]) => {
       weth.address,
       stableStrikeAsset.address,
       usdc.address,
-      true,
+      false,
       [expiry],
       [upperBoundValue],
     )
-    await calculator.setSpotShock(weth.address, stableStrikeAsset.address, usdc.address, true, scaleBigNum(1500, 35))
+    await calculator.setSpotShock(weth.address, stableStrikeAsset.address, usdc.address, false, scaleBigNum(300, 35))
+
     // setup otoken
     otokenImplementation = await Otoken.new()
     // setup factory
@@ -136,21 +137,22 @@ contract('Naked Put Option expires Itm flow', ([accountOwner1, buyer]) => {
       usdc.address,
       createTokenAmount(strikePrice),
       expiry,
-      true,
+      false,
     )
-    const ethPutAddress = await otokenFactory.getOtoken(
+
+    const ethCallAddress = await otokenFactory.getOtoken(
       weth.address,
       stableStrikeAsset.address,
       usdc.address,
       createTokenAmount(strikePrice),
       expiry,
-      true,
+      false,
     )
 
-    ethPut = await Otoken.at(ethPutAddress)
+    ethCall = await Otoken.at(ethCallAddress)
 
     // mint usdc to user
-    const accountOwner1Usdc = createTokenAmount(10 * collateralAmount, usdcDecimals)
+    const accountOwner1Usdc = createTokenAmount(2 * collateralAmount, usdcDecimals)
     await usdc.mint(accountOwner1, accountOwner1Usdc)
 
     // have the user approve all the usdc transfers
@@ -160,16 +162,14 @@ contract('Naked Put Option expires Itm flow', ([accountOwner1, buyer]) => {
     vaultCounter = vaultCounterBefore.toNumber() + 1
   })
 
-  describe('Integration test: Close a naked put after it expires ITM without depeg', () => {
+  describe('Close a naked call after it expires ITM', () => {
     const scaledOptionsAmount = createTokenAmount(optionsAmount, 8)
     const scaledCollateralAmount = createTokenAmount(collateralAmount, usdcDecimals)
-    const expirySpotPrice = 1300
-
-    before('Seller should be able to open a short put option', async () => {
+    const expirySpotPrice = 310
+    before('Seller should be able to open a short call option', async () => {
       // set oracle price
       await oracle.setRealTimePrice(stableStrikeAsset.address, scaleBigNum(1, 8))
-      await oracle.setRealTimePrice(weth.address, scaleBigNum(1500, 8))
-
+      await oracle.setRealTimePrice(weth.address, scaleBigNum(300, 8))
       const actionArgs = [
         {
           actionType: ActionType.OpenVault,
@@ -185,7 +185,7 @@ contract('Naked Put Option expires Itm flow', ([accountOwner1, buyer]) => {
           actionType: ActionType.MintShortOption,
           owner: accountOwner1,
           secondAddress: accountOwner1,
-          asset: ethPut.address,
+          asset: ethCall.address,
           vaultId: vaultCounter,
           amount: scaledOptionsAmount,
           index: '0',
@@ -210,11 +210,11 @@ contract('Naked Put Option expires Itm flow', ([accountOwner1, buyer]) => {
       // Keep track of balances before
       const ownerUsdcBalanceBefore = new BigNumber(await usdc.balanceOf(accountOwner1))
       const marginPoolUsdcBalanceBefore = new BigNumber(await usdc.balanceOf(marginPool.address))
-      const ownerOtokenBalanceBefore = new BigNumber(await ethPut.balanceOf(accountOwner1))
-      const oTokenSupplyBefore = new BigNumber(await ethPut.totalSupply())
+      const ownerOtokenBalanceBefore = new BigNumber(await ethCall.balanceOf(accountOwner1))
+      const oTokenSupplyBefore = new BigNumber(await ethCall.totalSupply())
 
-      // TODO check if need this
-      // Check that we start at a valid state
+      // TODO double check this
+      // We skip checking that we start at a valid state since we override the Rsyk margin requirements
       const vaultBefore = await controllerProxy.getVaultWithDetails(accountOwner1, vaultCounter)
       // const vaultStateBefore = await calculator.getExcessCollateral(vaultBefore[0], vaultBefore[1])
       // assert.equal(vaultStateBefore[0].toString(), '0')
@@ -224,9 +224,10 @@ contract('Naked Put Option expires Itm flow', ([accountOwner1, buyer]) => {
       if ((await time.latest()) < expiry) {
         await time.increaseTo(expiry + 2)
       }
-      const strikePriceChange = Math.max(strikePrice - expirySpotPrice, 0)
+
+      const strikePriceChange = Math.max(expirySpotPrice - strikePrice, 0)
       const scaledETHPrice = createTokenAmount(expirySpotPrice, 8)
-      const scaledUSDCPrice = createTokenAmount(0.5) // Simulate a depeg of USDC/USD to 0.5
+      const scaledUSDCPrice = createTokenAmount(0.5) // Simulate a depeg
       const scaledStableStrikeAssetPrice = createTokenAmount(1)
       await oracle.setExpiryPriceFinalizedAllPeiodOver(weth.address, expiry, scaledETHPrice, true)
       await oracle.setExpiryPriceFinalizedAllPeiodOver(usdc.address, expiry, scaledUSDCPrice, true)
@@ -264,8 +265,8 @@ contract('Naked Put Option expires Itm flow', ([accountOwner1, buyer]) => {
       const ownerUsdcBalanceAfter = new BigNumber(await usdc.balanceOf(accountOwner1))
       const marginPoolUsdcBalanceAfter = new BigNumber(await usdc.balanceOf(marginPool.address))
 
-      const ownerOtokenBalanceAfter = new BigNumber(await ethPut.balanceOf(accountOwner1))
-      const oTokenSupplyAfter = new BigNumber(await ethPut.totalSupply())
+      const ownerOtokenBalanceAfter = new BigNumber(await ethCall.balanceOf(accountOwner1))
+      const oTokenSupplyAfter = new BigNumber(await ethCall.totalSupply())
 
       // check balances before and after changed as expected
       assert.equal(ownerUsdcBalanceBefore.plus(scaledPayout).toString(), ownerUsdcBalanceAfter.toString())
@@ -275,7 +276,7 @@ contract('Naked Put Option expires Itm flow', ([accountOwner1, buyer]) => {
 
       // Check that we end at a valid state
       const vaultAfter = await controllerProxy.getVaultWithDetails(accountOwner1, vaultCounter)
-      const vaultStateAfter = await calculator.getExcessCollateral(vaultAfter[0], vaultAfter[1])
+      const vaultStateAfter = await calculator.getExcessCollateral(vaultAfter[0], vaultBefore[1])
       assert.equal(vaultStateAfter[0].toString(), '0')
       assert.equal(vaultStateAfter[1], true)
 
@@ -293,24 +294,23 @@ contract('Naked Put Option expires Itm flow', ([accountOwner1, buyer]) => {
       assert.equal(vaultAfter[0].longAmounts.length, 0, 'Length of the long amounts array in the vault is incorrect')
     })
 
-    it('Buyer: redeem ITM put option after expiry', async () => {
-      // owner sells their put option
-      await ethPut.transfer(buyer, scaledOptionsAmount, { from: accountOwner1 })
-      // oracle price decreases
-      const strikePriceChange = Math.max(strikePrice - expirySpotPrice, 0)
+    it('Buyer: redeem ITM call option after expiry', async () => {
+      // owner sells their call option
+      await ethCall.transfer(buyer, scaledOptionsAmount, { from: accountOwner1 })
+      const strikePriceChange = Math.max(expirySpotPrice - strikePrice, 0)
 
       // Keep track of balances before
       const ownerUsdcBalanceBefore = new BigNumber(await usdc.balanceOf(buyer))
       const marginPoolUsdcBalanceBefore = new BigNumber(await usdc.balanceOf(marginPool.address))
-      const ownerOtokenBalanceBefore = new BigNumber(await ethPut.balanceOf(buyer))
-      const oTokenSupplyBefore = new BigNumber(await ethPut.totalSupply())
+      const ownerOtokenBalanceBefore = new BigNumber(await ethCall.balanceOf(buyer))
+      const oTokenSupplyBefore = new BigNumber(await ethCall.totalSupply())
 
       const actionArgs = [
         {
           actionType: ActionType.Redeem,
           owner: buyer,
           secondAddress: buyer,
-          asset: ethPut.address,
+          asset: ethCall.address,
           vaultId: '0',
           amount: scaledOptionsAmount,
           index: '0',
@@ -323,8 +323,8 @@ contract('Naked Put Option expires Itm flow', ([accountOwner1, buyer]) => {
       // keep track of balances after
       const ownerUsdcBalanceAfter = new BigNumber(await usdc.balanceOf(buyer))
       const marginPoolUsdcBalanceAfter = new BigNumber(await usdc.balanceOf(marginPool.address))
-      const ownerOtokenBalanceAfter = new BigNumber(await ethPut.balanceOf(buyer))
-      const oTokenSupplyAfter = new BigNumber(await ethPut.totalSupply())
+      const ownerOtokenBalanceAfter = new BigNumber(await ethCall.balanceOf(buyer))
+      const oTokenSupplyAfter = new BigNumber(await ethCall.totalSupply())
 
       const payout = strikePriceChange * optionsAmount * 2 // Since USDC/USD now 0.5, payout in USDC doubles
       const scaledPayout = createTokenAmount(payout, usdcDecimals)
