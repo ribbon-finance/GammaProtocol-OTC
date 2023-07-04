@@ -130,10 +130,10 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
   const WBTCDECIMALS = 8
 
   // Prices
-  const usdcStartingPrice = 0.9 // Since USDC is never exactly 1, we set it at 0.9 to start to exaggerate the calculation differences
+  const usdcStartingPrice = 1
   const wethStartingPrice = 1500
   const wbtcStartingPrice = 20000
-  const usdcExpiryPrice = 1.1 // Similar to above, since USDC is never exactly 1, we set it at 1.1 to expiry to exaggerate the calculation differences
+  const usdcExpiryPrice = 0.8 // We simulate a depeg
 
   // permit related
   const name = 'ETHUSDC/1597511955/200P/USDC' // random example name
@@ -143,10 +143,11 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
 
   // Trade details
   const premiumAmountInUSD = '5000'
-  const collateralAmountInUSD = '16667' // Since USDC starts at 0.9, the collateral required is 10% * 100 * 1500 / 0.9
+  const collateralAmountInUSD = '15000'
   const marginTopUpAmount = '2000'
   const strikePriceInUSD = 1300
   const size = 100
+  const notionalInUSD = '150000'
 
   let userSignature1: permit
   let userSignature2: permit
@@ -322,7 +323,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
       [expiry],
       [upperBoundValue],
     )
-    await calculator.setSpotShock(weth.address, stableStrikeAsset.address, usdc.address, false, scaleBigNum(1500, 35))
+    await calculator.setSpotShock(weth.address, stableStrikeAsset.address, usdc.address, false, scaleBigNum(wethStartingPrice, 35))
 
     await calculator.setUpperBoundValues(
       weth.address,
@@ -332,7 +333,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
       [expiry],
       [upperBoundValue],
     )
-    await calculator.setSpotShock(weth.address, stableStrikeAsset.address, wbtc.address, true, scaleBigNum(1500, 35))
+    await calculator.setSpotShock(weth.address, stableStrikeAsset.address, wbtc.address, true, scaleBigNum(wethStartingPrice, 35))
   })
 
   describe('permit setup', () => {
@@ -1604,9 +1605,9 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
           1,
           userSignature4,
           mmSignatureUSDC1,
-          parseUnits('7000', 6),
+          parseUnits((parseInt(premiumAmountInUSD) + 10).toString(), 6),
           ZERO_ADDR,
-          parseUnits('11501', 6),
+          parseUnits(collateralAmountInUSD, 6),
           {
             from: marketMaker,
           },
@@ -1638,7 +1639,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
           mmSignatureUSDC1,
           parseUnits(premiumAmountInUSD, 6),
           usdc.address,
-          parseUnits('14999', 6),
+          parseUnits((parseInt(collateralAmountInUSD) - 10).toString(), 6),
           {
             from: marketMaker,
           },
@@ -1654,7 +1655,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
           userSignature2,
           parseUnits(premiumAmountInUSD, 6),
           usdc.address,
-          parseUnits('14999', 6),
+          parseUnits(collateralAmountInUSD, 6),
           {
             from: marketMaker,
           },
@@ -1673,7 +1674,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
           mmSignatureUSDC1,
           parseUnits(premiumAmountInUSD, 6),
           usdc.address,
-          parseUnits('11501', 6),
+          parseUnits(collateralAmountInUSD, 6),
           {
             from: marketMaker,
           },
@@ -1700,7 +1701,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
       )
 
       // price restores
-      await oracle.setRealTimePrice(weth.address, scaleBigNum(1500, 8))
+      await oracle.setRealTimePrice(weth.address, scaleBigNum(wethStartingPrice, 8))
     })
 
     it('successfully executes call with collateral in USDC via direct call', async () => {
@@ -1709,9 +1710,9 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
           weth.address,
           stableStrikeAsset.address,
           usdc.address,
-          createTokenAmount(100),
+          createTokenAmount(size),
           createTokenAmount(scaleBigNum(strikePriceInUSD, 8)),
-          scaleBigNum(1500, 8),
+          scaleBigNum(wethStartingPrice, 8),
           expiry,
           USDCDECIMALS,
           false,
@@ -1723,7 +1724,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
 
       const premium = parseUnits(premiumAmountInUSD, 6)
       const collateralAmount = parseUnits(collateralAmountInUSD, 6)
-      const orderFee = parseUnits('150000', 6).div(100) // fee is set at 1% of notional
+      const orderFee = parseUnits(notionalInUSD, 6).div(100) // fee is set at 1% of notional
       const mintAmount = parseUnits(size.toString(), 8)
 
       const userBalBeforeUSDC = new BigNumber(await usdc.balanceOf(user))
@@ -1778,7 +1779,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
       assert.equal((await otcWrapperProxy.orders(1))[8].toString(), marketMaker)
       assert.equal((await otcWrapperProxy.orders(1))[9].toString(), '1')
       assert.equal((await otcWrapperProxy.orderStatus(1)).toString(), '2')
-      assert.equal((await otcWrapperProxy.orders(1))[6].toString(), parseUnits('150000', 6).toString())
+      assert.equal((await otcWrapperProxy.orders(1))[6].toString(), parseUnits(notionalInUSD, 6).toString())
 
       // emits event
       const { logs } = tx
@@ -1794,7 +1795,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
       // user places a new order
       const strikePrice = scaleBigNum(strikePriceInUSD, 8)
       const notional = parseUnits('300000', 6)
-      const size = parseUnits('200', 8)
+      const parsedSize = parseUnits('200', 8)
 
       await otcWrapperProxy.placeOrder(
         weth.address,
@@ -1802,7 +1803,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
         strikePrice,
         expiry,
         parseUnits(premiumAmountInUSD, 6),
-        size,
+        parsedSize,
         {
           from: user,
         },
@@ -1815,9 +1816,9 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
           weth.address,
           stableStrikeAsset.address,
           wbtc.address,
-          createTokenAmount(100),
+          createTokenAmount(200),
           createTokenAmount(scaleBigNum(strikePriceInUSD, 8)),
-          scaleBigNum(1500, 8),
+          scaleBigNum(wethStartingPrice, 8),
           expiry,
           WBTCDECIMALS,
           true,
@@ -1906,9 +1907,8 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
 
       // place repeated order
       const strikePrice = scaleBigNum(strikePriceInUSD, 8)
-      const notional = parseUnits('150000', 6)
+      const notional = parseUnits(notionalInUSD, 6)
       const parsedSize = parseUnits(size.toString(), 8)
-      size
 
       await otcWrapperProxy.placeOrder(
         weth.address,
@@ -1924,8 +1924,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
 
       const premium = parseUnits(premiumAmountInUSD, 6)
       const collateralAmount = parseUnits(collateralAmountInUSD, 6)
-      const orderFee = parseUnits('150000', 6).div(100) // fee is set at 1% of notional
-      const mintAmount = parseUnits(size.toString(), 8)
+      const orderFee = parseUnits(notionalInUSD, 6).div(100) // fee is set at 1% of notional
       const orderId = 8
 
       const dataExample = [orderId, userSignature3, mmSignatureUSDC2, premium, usdc.address, collateralAmount]
@@ -1976,7 +1975,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
       // vault data
       const vaultCounter = new BigNumber(await controllerProxy.getAccountVaultCounter(otcWrapperProxy.address))
       const vault = await controllerProxy.getVaultWithDetails(otcWrapperProxy.address, vaultCounter)
-      assert.equal(new BigNumber(vault[0].shortAmounts[0]).toString(), mintAmount.toString())
+      assert.equal(new BigNumber(vault[0].shortAmounts[0]).toString(), parsedSize.toString())
       assert.equal(vault[0].shortOtokens[0].toString(), newOtoken.address)
       assert.equal(new BigNumber(vault[0].collateralAmounts[0]).toString(), collateralAmount.toString())
       assert.equal(vault[0].collateralAssets[0].toString(), usdc.address)
@@ -1992,7 +1991,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
 
       // ensure otoken address is repeated
       assert.equal((await otcWrapperProxy.orders(1))[10].toString(), (await otcWrapperProxy.orders(8))[10].toString())
-      assert.equal(userBalAfterOtoken.toString(), mintAmount.mul(2).toString())
+      assert.equal(userBalAfterOtoken.toString(), parsedSize.mul(2).toString())
     })
     it('should revert if fill deadline has passed', async () => {
       // place new order
@@ -2129,7 +2128,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
   })
 
   describe('Withdraw collateral', () => {
-    it('should revert if orderID is higher than lastest order  or the order status is not succeeded', async () => {
+    it('should revert if orderID is higher than lastest order or the order status is not succeeded', async () => {
       // Inexistent order
       await expectRevert(
         otcWrapperProxy.withdrawCollateral(20, 1, { from: marketMaker }),
@@ -2278,17 +2277,17 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
       await time.increase(8600000)
 
       //set finalized prices
-      await oracle.setExpiryPriceFinalizedAllPeiodOver(weth.address, expiry, createTokenAmount(1461), true)
+      await oracle.setExpiryPriceFinalizedAllPeiodOver(weth.address, expiry, createTokenAmount(1800), true)
       await oracle.setExpiryPriceFinalizedAllPeiodOver(usdc.address, expiry, createTokenAmount(usdcExpiryPrice), true)
 
       // isPut = false
       // Strike price = 1300
-      // Expiry price = 1461
+      // Expiry price = 1800
       // nr of otokens = 100
-      // user payout in USD = (1461-1300)*100 = 16100 USDC
-      // user payout in USD = 16100 * 1.1 = 17710 USDC
-      // collateral in vault = 17667 USDC
-      // collateral free to be withdrawn by MM = 17667 - 17710 = -43 USDC
+      // user payout in USD = (1800-1300)*100 = 50000 USD
+      // user payout in USD = 50000 / 0.8 = 62500 USDC
+      // collateral in vault = 15000 + 1000 = 16000 USDC
+      // collateral free to be withdrawn by MM = 16000 - 62500 = -46,500 USDC
 
       await expectRevert(otcWrapperProxy.settleVault(1, { from: marketMaker }), 'C32')
     })
@@ -2299,16 +2298,16 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
       //set finalized prices
       await oracle.setExpiryPriceFinalizedAllPeiodOver(weth.address, expiry, createTokenAmount(1400), true)
       await oracle.setExpiryPriceFinalizedAllPeiodOver(usdc.address, expiry, createTokenAmount(usdcExpiryPrice), true)
-
       // isPut = false
       // Strike price = 1300
       // Expiry price = 1400
       // nr of otokens = 100
-      // user payout = (1400-1300)*100 = 10000 USDC
-      // collateral in vault = 16001 USDC
-      // collateral free to be withdrawn by MM = 16001 - 10000 = 6001 USDC
+      // user payout in USD = (1400-1300)*100 = 10000 USD
+      // user payout in USDC = 10000 / 0.8 = 12500 USD
+      // collateral in vault = 15000 + 1000 = 16000 USDC
+      // collateral free to be withdrawn by MM = 16000 - 12500 = 3500 USDC
 
-      const collateralToWithdraw = createTokenAmount(6001, USDCDECIMALS)
+      const collateralToWithdraw = createTokenAmount(3500, USDCDECIMALS)
 
       const marginPoolBalBeforeUSDC = new BigNumber(await usdc.balanceOf(marginPool.address))
       const marketMakerBalBeforeUSDC = new BigNumber(await usdc.balanceOf(marketMaker))
@@ -2404,10 +2403,10 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
       // Expiry price = 1299
       // nr of otokens = 100
       // user payout = 0 | OTM
-      // collateral in vault = 15001 USDC
-      // collateral free to be withdrawn by MM = 15001 - 0 = 15001 USDC
+      // collateral in vault = 15000 USDC
+      // collateral free to be withdrawn by MM = 15000 - 0 = 15000 USDC
 
-      const collateralToWithdraw = createTokenAmount(15001, USDCDECIMALS)
+      const collateralToWithdraw = createTokenAmount(parseInt(collateralAmountInUSD), USDCDECIMALS)
 
       const marginPoolBalBeforeUSDC = new BigNumber(await usdc.balanceOf(marginPool.address))
       const marketMakerBalBeforeUSDC = new BigNumber(await usdc.balanceOf(marketMaker))
@@ -2436,7 +2435,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
           secondAddress: user,
           asset: (await otcWrapperProxy.orders(1))[10].toString(),
           vaultId: '1',
-          amount: createTokenAmount(100),
+          amount: createTokenAmount(size),
           index: '0',
           data: ZERO_ADDR,
         },
@@ -2464,7 +2463,6 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
     })
     it('no collateral amounts are redeemed if buyer tries to redeem before or after the vault was settled OTM', async () => {
       const strikePrice = scaleBigNum(strikePriceInUSD, 8)
-      // notional = parseUnits('150000', 6)
       const parsedSize = parseUnits(size.toString(), 8)
       const premium = parseUnits(premiumAmountInUSD, 6)
       const collateralAmount = parseUnits(collateralAmountInUSD, 6)
@@ -2494,6 +2492,8 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
       // set expiry to OTM
       await oracle.setExpiryPriceFinalizedAllPeiodOver(weth.address, expiry, createTokenAmount(1299), true)
       await oracle.setExpiryPriceFinalizedAllPeiodOver(usdc.address, expiry, createTokenAmount(usdcExpiryPrice), true)
+      await oracle.setExpiryPriceFinalizedAllPeiodOver(stableStrikeAsset.address, expiry, createTokenAmount(1), true)
+
 
       const otoken = await MockERC20.at((await otcWrapperProxy.orders(orderID))[10].toString())
 
@@ -2530,11 +2530,10 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
 
     it('user successfully redeems before vault is settled', async () => {
       const strikePrice = scaleBigNum(strikePriceInUSD, 8)
-      // notional = parseUnits('150000', 6)
       const parsedSize = parseUnits(size.toString(), 8)
       const premium = parseUnits(premiumAmountInUSD, 6)
       const collateralAmount = parseUnits(collateralAmountInUSD, 6)
-      const payout = parseUnits('10000', 6)
+      const payout = parseUnits('12500', 6) // 10000 / 0.8 = 12500
       const expiry = createValidExpiry(Number(await time.latest()), 10)
 
       await otcWrapperProxy.placeOrder(weth.address, false, strikePrice, expiry, premium, parsedSize, {
@@ -2561,6 +2560,7 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
       // set expiry to ITM with enough collateral
       await oracle.setExpiryPriceFinalizedAllPeiodOver(weth.address, expiry, createTokenAmount(1400), true)
       await oracle.setExpiryPriceFinalizedAllPeiodOver(usdc.address, expiry, createTokenAmount(usdcExpiryPrice), true)
+      await oracle.setExpiryPriceFinalizedAllPeiodOver(stableStrikeAsset.address, expiry, createTokenAmount(1), true)
 
       const otoken = await MockERC20.at((await otcWrapperProxy.orders(orderID))[10].toString())
 
@@ -2605,7 +2605,6 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
 
     it('should revert if it is ITM and there is not enough collateral in the vault', async () => {
       const strikePrice = scaleBigNum(strikePriceInUSD, 8)
-      // notional = parseUnits('150000', 6)
       const parsedSize = parseUnits(size.toString(), 8)
       const premium = parseUnits(premiumAmountInUSD, 6)
       const collateralAmount = parseUnits(collateralAmountInUSD, 6)
@@ -2633,8 +2632,10 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
       await time.increase(8600000)
 
       // set expiry to ITM without enough collateral
-      await oracle.setExpiryPriceFinalizedAllPeiodOver(weth.address, expiry, createTokenAmount(1451), true)
+      // 15000 USD in collateral. So if x is strike, (x - 1300) * 100 / 0.8 > 15000. x = 1421 minimally
+      await oracle.setExpiryPriceFinalizedAllPeiodOver(weth.address, expiry, createTokenAmount(1421), true)
       await oracle.setExpiryPriceFinalizedAllPeiodOver(usdc.address, expiry, createTokenAmount(usdcExpiryPrice), true)
+      await oracle.setExpiryPriceFinalizedAllPeiodOver(stableStrikeAsset.address, expiry, createTokenAmount(1), true)
 
       await expectRevert(
         otcWrapperProxy.redeem(orderID, { from: user }),
@@ -2646,9 +2647,9 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
       //set finalized prices to same as the moment vault was were settled
       await oracle.setExpiryPriceFinalizedAllPeiodOver(weth.address, expiry, createTokenAmount(1400), true)
 
-      const userPayout = createTokenAmount(10000, USDCDECIMALS)
+      const userPayout = createTokenAmount(12500, USDCDECIMALS) // 10000 / 0.8 = 12500 instead
       const otoken = await MockERC20.at((await otcWrapperProxy.orders(1))[10].toString())
-      const size = createTokenAmount(100)
+      const parsedSize = createTokenAmount(size)
 
       const marginPoolBalBeforeUSDC = new BigNumber(await usdc.balanceOf(marginPool.address))
       const userBalBeforeUSDC = new BigNumber(await usdc.balanceOf(user))
@@ -2662,12 +2663,12 @@ contract('OTCWrapper', ([admin, beneficiary, keeper, random]) => {
 
       assert.equal(marginPoolBalBeforeUSDC.minus(marginPoolBalAfterUSDC).toString(), userPayout.toString())
       assert.equal(userBalAfterUSDC.minus(userBalBeforeUSDC).toString(), userPayout.toString())
-      assert.equal(userBalBeforeOtoken.minus(userBalAfterOtoken).toString(), size.toString())
+      assert.equal(userBalBeforeOtoken.minus(userBalAfterOtoken).toString(), parsedSize.toString())
 
       // event
       const { logs } = tx
       assert.equal(logs[0].args.orderID.toString(), '1')
-      assert.equal(logs[0].args.size.toString(), size.toString())
+      assert.equal(logs[0].args.size.toString(), parsedSize.toString())
     })
   })
 
