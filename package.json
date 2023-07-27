@@ -22,7 +22,7 @@
     "build"
   ],
   "scripts": {
-    "ganache": "ganache-cli -d --port 8545 --defaultBalanceEther 500 --unlock 0xA94Ab2Bb0C67842FB40A1068068DF1225A031a7d 0x427fB2c379f02761594768357B33D267fFdf80C5",
+    "ganache": "ganache-cli -d --port 8545 --defaultBalanceEther 500 --unlock 0xA94Ab2Bb0C67842FB40A1068068DF1225A031a7d 0x427fB2c379f02761594768357B33D267fFdf80C5 0x5be5e1f5635ea3dc44cad435d00916d2b59bfc3c 0xF8368119Bb1073Cf01B841848725d81b542A4c19",
     "migrate": "truffle migrate",
     "build": "npm run compile:contracts && npm run compile:types",
     "compile:contracts": "truffle compile",
