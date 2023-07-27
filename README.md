@@ -43,6 +43,7 @@ In a new terminal, launch an Ethereum RPC client, we use the default ganache-cli
 ```sh
 $ npm run ganache
 ```
+Ensure that the global ganache version is: Ganache CLI v6.12.2 (ganache-core: 2.13.2)
 
 Switch back to your other terminal and deploy the contracts, and make sure to:
 - Add your infura key in `.infuraKey` file
