@@ -422,8 +422,8 @@ contract OTCWrapperV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
             order.collateral, // deposited asset
             order.vaultID, // vaultId
             _amount, // amount
-            0, //index
-            "" //data
+            0, // index
+            "" // data
         );
 
         // execute actions
@@ -466,7 +466,7 @@ contract OTCWrapperV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
 
             amountToWithdraw = _amount;
         } else {
-            // seller transfer otokens to burn - requires approve() by the seller
+            // seller transfers otokens to burn - requires approve() by the seller
             IERC20(order.oToken).safeTransferFrom(_msgSender(), address(this), order.size);
 
             // burn otokens
@@ -484,7 +484,7 @@ contract OTCWrapperV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
             // execute burn
             controller.operate(actions);
 
-            // ensure this vault is no longer redeemable
+            // ensure the vault is no longer redeemable
             orders[_orderID].size = 0;
 
             amountToWithdraw = vault.collateralAmounts[0];
@@ -497,8 +497,8 @@ contract OTCWrapperV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
             order.collateral, // withdrawn asset
             order.vaultID, // vaultId
             amountToWithdraw, // amount
-            0, //index
-            "" //data
+            0, // index
+            "" // data
         );
 
         // execute withdraw
@@ -778,8 +778,8 @@ contract OTCWrapperV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
             _collateralAsset, // deposited asset
             vaultID, // vaultId
             _collateralAmount, // amount
-            0, //index
-            "" //data
+            0, // index
+            "" // data
         );
 
         // retrieve otoken address
@@ -980,7 +980,7 @@ contract OTCWrapperV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
         );
         require(_bidderUSDCSignature.deadline == _bidderOrderSignature.deadline, "OTCWrapper: deadlines do not match");
 
-        // operation restrictions
+        // operation related restrictions
         require(
             block.timestamp + unwindBufferDuration < order.expiry,
             "OTCWrapper: can not unwind too close to expiry"
@@ -991,7 +991,7 @@ contract OTCWrapperV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
         );
         require(isWhitelistedMarketMaker[_msgSender()], "OTCWrapper: address not whitelisted market maker");
 
-        // bidder inflow
+        // bidder's inflow
         _deposit(USDC, _bidderOrderSignature.bidValue, _bidderUSDCSignature);
 
         // calculate fee to beneficiary
@@ -1000,10 +1000,10 @@ contract OTCWrapperV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
         // seller receives premium after fee is paid
         IERC20(USDC).safeTransfer(order.buyer, _bidderOrderSignature.bidValue - orderFee);
 
-        // seller transfer otokens to bidder - requires approve() by the seller
+        // seller transfers otokens to bidder - requires approve() by the seller
         IERC20(order.oToken).safeTransferFrom(_sellerOrderSignature.acct, _bidderOrderSignature.acct, order.size);
 
-        // bidder becomes the order buyer
+        // bidder becomes the new order buyer
         orders[_bidderOrderSignature.orderID].buyer = _bidderOrderSignature.acct;
 
         emit RedeemRightsSold(
