@@ -1451,6 +1451,7 @@ contract('OTCWrapperV2', ([admin, beneficiary, keeper, random]) => {
     })
     it('successfully sets unwind permit', async () => {
       assert.equal(await otcWrapperProxy.UNWIND_PERMIT(), unwindPermitContract.address)
+      assert.equal((await otcWrapperProxy.FEE_PERCENT_MULTIPLER()).toString(), parseUnits('1', 6).toString())
     })
   })
 

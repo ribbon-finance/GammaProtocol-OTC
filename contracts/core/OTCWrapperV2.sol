@@ -193,6 +193,9 @@ contract OTCWrapperV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
     ///@notice buffer time between last allowed unwind moment and expiry
     uint256 public unwindBufferDuration;
 
+    ///@notice value that represents 100% for fees
+    uint256 public immutable FEE_PERCENT_MULTIPLER;
+
     /// @notice Unwind Permit interface
     UnwindPermitInterface public immutable UNWIND_PERMIT;
 
@@ -235,6 +238,7 @@ contract OTCWrapperV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
 
         USDC = _usdc;
         UNWIND_PERMIT = UnwindPermitInterface(_unwindPermit);
+        FEE_PERCENT_MULTIPLER = 1e6;
     }
 
     /**
@@ -310,7 +314,7 @@ contract OTCWrapperV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
      */
     function setFee(address _underlying, uint256 _fee) external onlyOwner {
         require(_underlying != address(0), "OTCWrapper: asset address cannot be 0");
-        require(_fee <= 1e6, "OTCWrapper: fee cannot be higher than 100%"); // 1e6 is equivalent to 100%
+        require(_fee <= FEE_PERCENT_MULTIPLER, "OTCWrapper: fee cannot be higher than 100%"); // 1e6 is equivalent to 100%
 
         fee[_underlying] = _fee;
     }
@@ -323,7 +327,7 @@ contract OTCWrapperV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
      */
     function setUnwindFee(address _underlying, uint256 _unwindFee) external onlyOwner {
         require(_underlying != address(0), "OTCWrapper: asset address cannot be 0");
-        require(_unwindFee <= 1e6, "OTCWrapper: fee cannot be higher than 100%"); // 1e6 is equivalent to 100%
+        require(_unwindFee <= FEE_PERCENT_MULTIPLER, "OTCWrapper: fee cannot be higher than 100%"); // 1e6 is equivalent to 100%
 
         unwindFee[_underlying] = _unwindFee;
     }
