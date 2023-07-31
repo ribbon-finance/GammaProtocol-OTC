@@ -87,7 +87,7 @@ contract OTCWrapperV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
     event RedeemRightsSold(uint256 indexed orderID, address seller, address bidder, uint256 bidValue);
 
     /// @notice emits an event when fees are claimed
-    event FeesClaimed(uint256 amountClaimed);
+    event FeesClaimed(uint256 amountClaimed, address asset);
 
     /************************************************
      *  STORAGE
@@ -915,16 +915,19 @@ contract OTCWrapperV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
 
     /**
      * @notice sends fees to beneficiary
+     * @param _asset the asset to claim
      */
-    function claimFees() external {
-        IERC20 usdc = IERC20(USDC);
+    function claimFees(address _asset) external {
+        require(_asset != address(0), "OTCWrapper: asset address cannot be 0");
 
-        uint256 amountToClaim = usdc.balanceOf(address(this));
+        IERC20 asset = IERC20(_asset);
+
+        uint256 amountToClaim = asset.balanceOf(address(this));
         require(amountToClaim > 0, "OTCWrapper: amount to claim cannot be 0");
 
-        usdc.safeTransfer(beneficiary, amountToClaim);
+        asset.safeTransfer(beneficiary, amountToClaim);
 
-        emit FeesClaimed(amountToClaim);
+        emit FeesClaimed(amountToClaim, _asset);
     }
 
     /**
