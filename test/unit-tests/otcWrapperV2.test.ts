@@ -1570,6 +1570,9 @@ contract('OTCWrapperV2', ([admin, beneficiary, keeper, random]) => {
   })
 
   describe('claimFees', () => {
+    it('reverts if contract balance is 0', async () => {
+      await expectRevert(otcWrapperProxy.claimFees(wbtc.address), 'OTCWrapper: amount to claim cannot be 0')
+    })
     it('reverts if asset is address 0', async () => {
       await expectRevert(otcWrapperProxy.claimFees(ZERO_ADDR), 'OTCWrapper: asset address cannot be 0')
     })
@@ -1587,9 +1590,6 @@ contract('OTCWrapperV2', ([admin, beneficiary, keeper, random]) => {
       const { logs } = tx
       assert.equal(logs[0].args.amountClaimed.toString(), amountToClaim)
       assert.equal(logs[0].args.asset.toString(), usdc.address)
-    })
-    it('reverts if contract balance is 0', async () => {
-      await expectRevert(otcWrapperProxy.claimFees(wbtc.address), 'OTCWrapper: amount to claim cannot be 0')
     })
   })
 
