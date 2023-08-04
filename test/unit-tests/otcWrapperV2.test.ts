@@ -240,7 +240,7 @@ contract('OTCWrapperV2', ([admin, beneficiary, keeper, random]) => {
     assert.equal(await controllerProxy.systemPartiallyPaused(), false, 'system is partially paused')
 
     // deploy unwind permit
-    unwindPermitContract = await UnwindPermitContract.new(name)
+    unwindPermitContract = await UnwindPermitContract.new(name, keeper)
 
     // deploy minimal forwarder
     minimalForwarder = await MinimalForwarder.new()
@@ -259,6 +259,9 @@ contract('OTCWrapperV2', ([admin, beneficiary, keeper, random]) => {
 
     // set OTC wrapper address in addressbook
     await addressBook.setOTCWrapper(otcWrapperProxy.address)
+
+    // set OTC wrapper address in UnwindPermit
+    await unwindPermitContract.setOTCWrapper(otcWrapperProxy.address, { from: keeper })
 
     // set oracle price
     await oracle.setRealTimePrice(usdc.address, scaleBigNum(1, 8))
@@ -1451,7 +1454,7 @@ contract('OTCWrapperV2', ([admin, beneficiary, keeper, random]) => {
     })
     it('successfully sets unwind permit', async () => {
       assert.equal(await otcWrapperProxy.UNWIND_PERMIT(), unwindPermitContract.address)
-      assert.equal((await otcWrapperProxy.FEE_PERCENT_MULTIPLER()).toString(), parseUnits('1', 6).toString())
+      assert.equal((await otcWrapperProxy.FEE_PERCENT_MULTIPLIER()).toString(), parseUnits('1', 6).toString())
     })
   })
 

@@ -21,7 +21,7 @@ import {IOtokenFactoryWrapperInterface} from "../interfaces/otcWrapperInterfaces
 import {MinimalForwarder} from "@openzeppelin/contracts/metatx/MinimalForwarder.sol";
 import {SupportsNonCompliantERC20} from "../libs/SupportsNonCompliantERC20.sol";
 import {MarginCalculatorWrapperInterface} from "../interfaces/otcWrapperInterfaces/MarginCalculatorWrapperInterface.sol";
-import {UnwindPermitInterface} from "../interfaces/otcWrapperInterfaces/UnwindPermitInterface.sol";
+import {UnwindPermitInterface} from "../packages/unwind-permit/UnwindPermit.sol";
 
 /**
  * @title OTC Wrapper
@@ -194,7 +194,7 @@ contract OTCWrapperV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
     uint256 public unwindBufferDuration;
 
     ///@notice value that represents 100% for fees
-    uint256 public immutable FEE_PERCENT_MULTIPLER;
+    uint256 public immutable FEE_PERCENT_MULTIPLIER;
 
     /// @notice Unwind Permit interface
     UnwindPermitInterface public immutable UNWIND_PERMIT;
@@ -238,7 +238,7 @@ contract OTCWrapperV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
 
         USDC = _usdc;
         UNWIND_PERMIT = UnwindPermitInterface(_unwindPermit);
-        FEE_PERCENT_MULTIPLER = 1e6;
+        FEE_PERCENT_MULTIPLIER = 1e6;
     }
 
     /**
@@ -314,7 +314,7 @@ contract OTCWrapperV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
      */
     function setFee(address _underlying, uint256 _fee) external onlyOwner {
         require(_underlying != address(0), "OTCWrapper: asset address cannot be 0");
-        require(_fee <= FEE_PERCENT_MULTIPLER, "OTCWrapper: fee cannot be higher than 100%"); // 1e6 is equivalent to 100%
+        require(_fee <= FEE_PERCENT_MULTIPLIER, "OTCWrapper: fee cannot be higher than 100%");
 
         fee[_underlying] = _fee;
     }
@@ -327,7 +327,7 @@ contract OTCWrapperV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
      */
     function setUnwindFee(address _underlying, uint256 _unwindFee) external onlyOwner {
         require(_underlying != address(0), "OTCWrapper: asset address cannot be 0");
-        require(_unwindFee <= FEE_PERCENT_MULTIPLER, "OTCWrapper: fee cannot be higher than 100%"); // 1e6 is equivalent to 100%
+        require(_unwindFee <= FEE_PERCENT_MULTIPLIER, "OTCWrapper: fee cannot be higher than 100%");
 
         unwindFee[_underlying] = _unwindFee;
     }
@@ -526,7 +526,7 @@ contract OTCWrapperV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
     ) private {
         require(_depositAmount > 0, "OTCWrapper: amount cannot be 0");
 
-        if (_asset == USDC) {
+        if (_asset == USDC && IERC20(USDC).allowance(_signature.acct, address(this)) < _depositAmount) {
             // Sign for transfer approval
             IERC20Permit(USDC).permit(
                 _signature.acct,
@@ -731,13 +731,11 @@ contract OTCWrapperV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
         // market maker inflow
         _deposit(_collateralAsset, _collateralAmount, _mmSignature);
 
-        // eg. fee = 4bps = 0.04% , then need to divide by 100 again so (( 4 / 100 ) / 100)
-        // after the above it is divided again by 1e2 which is the fee decimals
-        // multiplication by 1e8 is used to compensate the 8 decimals from USDC price
-        // when aggregated the multiplication becomes by 1e2
+        // eg. fee = 400 = 4bps = 0.04% , then need to divide by the FEE_PERCENT_MULTIPLIER
+        // multiplication by 1e8 is used to compensate for the 8 decimals from USDC oracle price
         uint256 usdcPrice = oracle.getPrice(USDC);
         require(usdcPrice > 0, "OTCWrapper: invalid USDC price");
-        uint256 orderFee = (_notional * (fee[_order.underlying]) * 1e2) / usdcPrice;
+        uint256 orderFee = ((_notional * (fee[_order.underlying]) * 1e8) / FEE_PERCENT_MULTIPLIER) / usdcPrice;
 
         // transfer premium to market maker
         IERC20(USDC).safeTransfer(_msgSender(), (_premium - orderFee));
@@ -1002,7 +1000,7 @@ contract OTCWrapperV2 is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
         _deposit(USDC, _bidderOrderSignature.bidValue, _bidderUSDCSignature);
 
         // calculate fee to beneficiary
-        uint256 orderFee = (_bidderOrderSignature.bidValue * unwindFee[order.underlying]) / 1e6; // divides by 1e6 as bidValue is expected to have 6 decimals (USDC)
+        uint256 orderFee = (_bidderOrderSignature.bidValue * unwindFee[order.underlying]) / FEE_PERCENT_MULTIPLIER;
 
         // seller receives premium after fee is paid
         IERC20(USDC).safeTransfer(order.buyer, _bidderOrderSignature.bidValue - orderFee);

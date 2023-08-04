@@ -25,7 +25,7 @@ contract('OTCWrapperV2', ([random]) => {
       otcWrapperProxy = await OTCWrapper.at(OTC_WRAPPER_MAINNET_ADDRESS)
 
       // deploy unwind permit
-      unwindPermitContract = await UnwindPermitContract.new(name)
+      unwindPermitContract = await UnwindPermitContract.new(name, ADMIN)
 
       // deploy minimal forwarder
       minimalForwarder = await MinimalForwarder.new()
@@ -46,7 +46,7 @@ contract('OTCWrapperV2', ([random]) => {
       const OTokenFactoryBef = (await otcWrapperProxy.OTokenFactory()).toString()
       const calculatorBef = (await otcWrapperProxy.calculator()).toString()
       const latestOrderBef = (await otcWrapperProxy.latestOrder()).toString()
-      const fillDeadlineBef = (await otcWrapperProxy.latestOrder()).toString()
+      const fillDeadlineBef = (await otcWrapperProxy.fillDeadline()).toString()
       const beneficiaryBef = (await otcWrapperProxy.beneficiary()).toString()
       const usdcBef = (await otcWrapperProxy.USDC()).toString()
 
@@ -69,7 +69,7 @@ contract('OTCWrapperV2', ([random]) => {
       const OTokenFactoryAft = (await otcWrapperProxy.OTokenFactory()).toString()
       const calculatorAft = (await otcWrapperProxy.calculator()).toString()
       const latestOrderAft = (await otcWrapperProxy.latestOrder()).toString()
-      const fillDeadlineAft = (await otcWrapperProxy.latestOrder()).toString()
+      const fillDeadlineAft = (await otcWrapperProxy.fillDeadline()).toString()
       const beneficiaryAft = (await otcWrapperProxy.beneficiary()).toString()
       const usdcAft = (await otcWrapperProxy.USDC()).toString()
 
