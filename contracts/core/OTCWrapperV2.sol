@@ -21,7 +21,7 @@ import {IOtokenFactoryWrapperInterface} from "../interfaces/otcWrapperInterfaces
 import {MinimalForwarder} from "@openzeppelin/contracts/metatx/MinimalForwarder.sol";
 import {SupportsNonCompliantERC20} from "../libs/SupportsNonCompliantERC20.sol";
 import {MarginCalculatorWrapperInterface} from "../interfaces/otcWrapperInterfaces/MarginCalculatorWrapperInterface.sol";
-import {UnwindPermitInterface} from "../packages/unwind-permit/UnwindPermit.sol";
+import {UnwindPermitInterface} from "../interfaces/otcWrapperInterfaces/UnwindPermitInterface.sol";
 
 /**
  * @title OTC Wrapper
