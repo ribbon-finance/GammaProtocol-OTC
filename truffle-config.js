@@ -60,7 +60,7 @@ module.exports = {
       confirmations: 2,
       timeoutBlocks: 50,
       skipDryRun: false,
-      gasPrice: 100000000000,
+      gasPrice: 20000000000,
     },
     avax: {
       provider: () => new HDWalletProvider(mnemonic, 'https://api.avax.network/ext/bc/C/rpc'),
@@ -71,6 +71,12 @@ module.exports = {
       network_id: 1,
       gas: 8000000,
       gasPrice: 250000000000,
+      skipDryRun: true,
+    },
+    sepolia: {
+      provider: () => new HDWalletProvider(mnemonic, 'https://ethereum-sepolia.blockpi.network/v1/rpc/public'),
+      network_id: 11155111,
+      gasPrice: 10000000000,
       skipDryRun: true,
     }
   },
