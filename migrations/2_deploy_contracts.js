@@ -11,8 +11,9 @@ const AddressBook = artifacts.require('AddressBook')
 const Controller = artifacts.require('Controller')
 const MinimalForwarder = artifacts.require('MinimalForwarder')
 const MarginRequirements = artifacts.require('MarginRequirements')
-const OTCWrapper = artifacts.require('OTCWrapper')
+const OTCWrapperV2 = artifacts.require('OTCWrapperV2')
 const OwnedUpgradeabilityProxy = artifacts.require('OwnedUpgradeabilityProxy')
+const UnwindPermit = artifacts.require('UnwindPermit')
 
 module.exports = async function(deployer, network, accounts) {
   const [deployerAddress] = accounts
@@ -68,12 +69,17 @@ module.exports = async function(deployer, network, accounts) {
   await deployer.deploy(MinimalForwarder, {from: deployerAddress})
   const forwarder = await MinimalForwarder.deployed()
 
+  // deploy Unwind Permit
+  const keeper = "0xF8368119Bb1073Cf01B841848725d81b542A4c19"
+  await deployer.deploy(UnwindPermit, "OTCWrapperPermit", keeper, {from: deployerAddress})
+  const unwindPermit = await UnwindPermit.deployed()
+
   // deploy OTC wrapper
-  const addressUSDC = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"; // ETH Mainnet USDC address
-  const fillDeadline = 15*60 // 15 minutes
+  const addressUSDC = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" // ETH Mainnet USDC address
+  const fillDeadline = 3600 // 1 hour
   const beneficiary = "0xDAEada3d210D2f45874724BeEa03C7d4BBD41674" // Ribbon multisig
   
-  const otcWrapperImplementation = await OTCWrapper.new(forwarder.address, addressUSDC)
+  const otcWrapperImplementationV2 = await OTCWrapperV2.new(forwarder.address, addressUSDC, unwindPermit.address)
   const ownedUpgradeabilityProxy = await OwnedUpgradeabilityProxy.new()
 
   await ownedUpgradeabilityProxy.upgradeTo(otcWrapperImplementation.address)
@@ -84,7 +90,9 @@ module.exports = async function(deployer, network, accounts) {
 
   await addressbook.setOTCWrapper(otcWrapperProxy.address, {from: deployerAddress})
   
-  console.log("OTC Wrapper Implementation at", otcWrapperImplementation.address)
+  console.log("OTC Wrapper Implementation V2 at", otcWrapperImplementationV2.address)
 
   console.log("OTC Wrapper Proxy at", otcWrapperProxy.address)
+
+  console.log("Unwind Permit at", unwindPermit.address)
 }

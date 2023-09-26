@@ -72,6 +72,12 @@ module.exports = {
       gas: 8000000,
       gasPrice: 250000000000,
       skipDryRun: true,
+    },
+    sepolia: {
+      provider: () => new HDWalletProvider(mnemonic, 'https://ethereum-sepolia.blockpi.network/v1/rpc/public'),
+      network_id: 11155111,
+      gasPrice: 10000000000,
+      skipDryRun: true,
     }
   },
 

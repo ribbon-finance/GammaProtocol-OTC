@@ -26,6 +26,16 @@ export type permit = {
   s: string
 }
 
+export type unwindPermit = {
+  acct: string
+  orderID: (BigNumber | string | number)
+  bidValue: (BigNumber | string | number)
+  deadline: (BigNumber | string | number)
+  v: string
+  r: string
+  s: string
+}
+
 /**
  * Return a valid expiry timestamp that's today + # days, 0800 UTC.
  * @param now
