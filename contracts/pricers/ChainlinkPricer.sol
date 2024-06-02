@@ -70,8 +70,6 @@ contract ChainLinkPricer is OpynPricerInterface {
     function setExpiryPriceInOracle(uint256 _expiryTimestamp, uint80 _roundId) external onlyBot {
         (, int256 price, , uint256 roundTimestamp, ) = aggregator.getRoundData(_roundId);
 
-        require(_expiryTimestamp <= roundTimestamp, "ChainLinkPricer: invalid roundId");
-
         oracle.setExpiryPrice(asset, _expiryTimestamp, uint256(price));
     }
 
